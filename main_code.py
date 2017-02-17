@@ -21,8 +21,9 @@ from pyspark.ml.regression import LinearRegression                              
 
 
 #sqlContext = SQLContext(sc)
-df = spark.read.options(header = 'true',inferSchema = 'true').\                   # read in data, you can upload data to tables(it is in the sidebar) 
-      csv('/FileStore/tables/r31g95231487183714154/train.csv')                    # and change the csv direction.
+df = spark.read.options(header = 'true',inferSchema = 'true').csv('/FileStore/tables/r31g95231487183714154/train.csv')                    
+                                                                                  # read in data, you can upload data to tables(it is in the sidebar) 
+                                                                                  # and change the csv direction.
                                                                                   # without infreSchema, the dataframe reading will give you all string data.
                                                                                   # rather tahn categorical and numeric data
 df = df.withColumn('LotFrontage', df.LotFrontage.cast("integer"))                 # these four rows change the numeric data with NA values to integer.
