@@ -18,7 +18,8 @@ from pyspark.sql import SQLContext                                              
 from pyspark.ml.linalg import VectorUDT                                           # used in STEP 4
 from pyspark.mllib.linalg import Vectors as MLLibVectors                          # used in STEP 4
 from pyspark.ml.regression import LinearRegression                                # used in STEP 5
-
+from pyspark.ml.linalg import Vectors                                             # combine vectors
+from pyspark.ml.feature import VectorAssembler                                    # combine vectors
 
 #sqlContext = SQLContext(sc)
 df = spark.read.options(header = 'true',inferSchema = 'true').csv('/FileStore/tables/r31g95231487183714154/train.csv')                    
@@ -70,18 +71,19 @@ for item in string_col:
   df_str = df_str.join(encoder,'Id')                                             # the output of one hot encoding is a vector
                                                                                  # unlike r or python, which ask input should be a matrix with 
                                                                                  # many columns. The each line of MLlib features input is a vector.
-df_price = df.join(df_str,'Id','inner').select('Id','SalePrice')
+df = df.join(df_str,'Id','inner')
+df_price = df.select('Id','SalePrice')
 df_variable = df.drop('SalePrice')
 
-data = df.rdd.map(lambda r: LabeledPoint(r[-1],[r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8],r[9],r[10],r[11],r[12],r[13],r[14],r[15],r[16],r[17],r[18],r[19],r[20],r[21],r[22],r[23],r[24],r[25],r[26],r[27],r[28],r[29],r[30],r[31],r[32],r[33],r[34],r[35],r[36],r[37],r[38]])).toDF()                                                        
-# I don't know how to make it here. just use stupid method...
+assembler = VectorAssembler(inputCols = df_variable.columns, outputCol = 'features')  # Assemble all vectors together as input
+output = assembler.transform(df)
+input_data = output.select('SalePrice','features')
+input_data = input_data.selectExpr("SalePrice as label",'features as features')
 
-as_ml = udf(lambda v: v.asML() if v is not None else None, VectorUDT())          # define function to change datatype input vector.
-result = data.withColumn("features", as_ml("features"))
 
-lr = LinearRegression(maxIter=10, regParam=0.3, elasticNetParam=0.8)             # linear model and parameters
+lr = LinearRegression(maxIter=100, regParam=0, elasticNetParam=0.8)             # linear model and parameters
 
 # Fit the model
-lrModel = lr.fit(result)                                                         # model fit on data
-print("Coefficients: " + str(lrModel.coefficients))                               # print parameters
+lrModel = lr.fit(input_data)                                                     # model fit on data
+print("Coefficients: " + str(lrModel.coefficients))                              # print parameters
 print("Intercept: " + str(lrModel.intercept))                                    # print intercept
