@@ -87,3 +87,43 @@ lr = LinearRegression(maxIter=100, regParam=0, elasticNetParam=0.8)             
 lrModel = lr.fit(input_data)                                                     # model fit on data
 print("Coefficients: " + str(lrModel.coefficients))                              # print parameters
 print("Intercept: " + str(lrModel.intercept))                                    # print intercept
+
+####################################################
+'random forest part'
+####################################################
+
+from pyspark.ml import Pipeline
+from pyspark.ml.regression import RandomForestRegressor
+from pyspark.ml.feature import VectorIndexer
+from pyspark.ml.evaluation import RegressionEvaluator
+
+featureIndexer =\
+    VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=4).fit(input_data)
+
+# Split the data into training and test sets (30% held out for testing)
+(trainingData, testData) = input_data.randomSplit([0.7, 0.3])
+
+# Train a RandomForest model.
+rf = RandomForestRegressor(featuresCol="indexedFeatures")
+
+# Chain indexer and forest in a Pipeline
+pipeline = Pipeline(stages=[featureIndexer, rf])
+
+# Train model.  This also runs the indexer.
+model = pipeline.fit(trainingData)
+
+# Make predictions.
+predictions = model.transform(testData)
+
+# Select example rows to display.
+predictions.select("prediction", "label", "features").show(5)
+
+# Select (prediction, true label) and compute test error
+evaluator = RegressionEvaluator(
+    labelCol="label", predictionCol="prediction", metricName="rmse")
+rmse = evaluator.evaluate(predictions)
+print("Root Mean Squared Error (RMSE) on test data = %g" % rmse)
+
+rfModel = model.stages[1]
+print(rfModel)  # summary only
+
